@@ -1,3 +1,4 @@
+import gleam/bool
 import gleam/int
 import gleam/io
 import gleam/list
@@ -14,11 +15,35 @@ pub fn main() {
       string.split(s, " ")
       |> list.map(fn(s) { int.parse(s) |> result.unwrap(0) })
     })
-    |> list.map(is_safe)
-    |> list.filter(fn(b) { b })
-    |> list.length
 
-  io.println(content |> int.to_string)
+  let fullength = content |> list.length
+
+  let unsafes =
+    content
+    |> list.filter(fn(x) { is_safe(x) |> bool.negate })
+
+  let safelength = fullength - { unsafes |> list.length }
+  let fixables = unsafes |> list.map(is_fixable) |> list.filter(fn(x) { x })
+
+  io.println(fullength |> int.to_string)
+  io.println(safelength |> int.to_string)
+  io.println({ fixables |> list.length } |> int.to_string)
+  io.println("----")
+  io.println({ { fixables |> list.length } + safelength } |> int.to_string)
+}
+
+pub fn is_fixable(l: List(Int)) -> Bool {
+  let len = l |> list.length
+  let iter = list.range(0, len)
+  let variations =
+    iter
+    |> list.map(fn(i) {
+      [{ l |> list.take(len - { i + 1 }) }, l |> list.drop(len - i)]
+      |> list.flatten
+    })
+
+  variations
+  |> list.any(is_safe)
 }
 
 pub fn is_safe(l: List(Int)) -> Bool {
