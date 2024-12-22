@@ -10,43 +10,37 @@ pub fn main() {
     simplifile.read(from: "input")
     |> result.unwrap("")
     |> string.split("\n")
-    |> list.map(fn(s) { string.split(s, "   ") })
-
-  let left =
-    content
-    |> list.map(fn(i) {
-      i
-      |> list.at(0)
-      |> result.unwrap("0")
-      |> int.parse
-      |> result.unwrap(0)
+    |> list.map(fn(s) {
+      string.split(s, " ")
+      |> list.map(fn(s) { int.parse(s) |> result.unwrap(0) })
     })
-    |> list.sort(int.compare)
+    |> list.map(is_safe)
+    |> list.filter(fn(b) { b })
+    |> list.length
 
-  let right =
-    content
-    |> list.map(fn(i) {
-      i
-      |> list.at(1)
-      |> result.unwrap("0")
-      |> int.parse
-      |> result.unwrap(0)
+  io.println(content |> int.to_string)
+}
+
+pub fn is_safe(l: List(Int)) -> Bool {
+  let diffs =
+    l
+    |> list.window(2)
+    |> list.map(fn(p) {
+      { p |> list.at(0) |> result.unwrap(0) }
+      - { p |> list.at(1) |> result.unwrap(0) }
     })
-    |> list.sort(int.compare)
 
-  let simfirst =
-    left
-    |> list.map(fn(a) {
-      {
-        list.filter(right, fn(b) { a == b })
-        |> list.length
-      }
-      * a
-    })
-    |> list.fold(0, fn(a, b) { a + b })
+  let allincrease =
+    diffs
+    |> list.all(fn(i) { i < 0 })
 
-  io.println(
-    simfirst
-    |> int.to_string,
-  )
+  let alldecrease =
+    diffs
+    |> list.all(fn(i) { i > 0 })
+
+  let allinrange =
+    diffs
+    |> list.all(fn(i) { i > -4 && i < 4 })
+
+  { alldecrease || allincrease } && allinrange
 }
