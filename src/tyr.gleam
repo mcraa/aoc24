@@ -12,7 +12,7 @@ pub fn main() {
     |> string.split("\n")
     |> list.map(fn(s) { string.split(s, "   ") })
 
-  let first =
+  let left =
     content
     |> list.map(fn(i) {
       i
@@ -23,7 +23,7 @@ pub fn main() {
     })
     |> list.sort(int.compare)
 
-  let second =
+  let right =
     content
     |> list.map(fn(i) {
       i
@@ -34,19 +34,19 @@ pub fn main() {
     })
     |> list.sort(int.compare)
 
-  let x =
-    first
-    |> list.zip(second)
-    |> list.map(fn(i) {
-      case i.0 > i.1 {
-        True -> i.0 - i.1
-        False -> i.1 - i.0
+  let simfirst =
+    left
+    |> list.map(fn(a) {
+      {
+        list.filter(right, fn(b) { a == b })
+        |> list.length
       }
+      * a
     })
     |> list.fold(0, fn(a, b) { a + b })
 
   io.println(
-    x
+    simfirst
     |> int.to_string,
   )
 }
