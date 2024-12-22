@@ -3,6 +3,7 @@ import gleam/dict
 import gleam/int
 import gleam/io
 import gleam/list
+import gleam/order
 import gleam/result
 import gleam/string
 import simplifile
@@ -33,7 +34,7 @@ pub fn main() {
     })
 
   let iterate = list.range(0, { { pages |> list.length } - 1 })
-  let goodrows =
+  let badrows =
     iterate
     |> list.filter(fn(i) {
       let row =
@@ -61,12 +62,41 @@ pub fn main() {
         })
         |> list.length
 
-      goodpages == { loop |> list.length }
+      goodpages < { loop |> list.length }
     })
 
-  let res = goodrows |> get_middles_sum(pages)
+  let res =
+    badrows
+    |> list.map(fn(n) {
+      let row =
+        pages
+        |> list.at(n)
+        |> result.unwrap([])
 
-  io.println(res |> int.to_string)
+      row |> fix_order(rules)
+    })
+
+  let fixed = get_middles_sum(list.range(0, { res |> list.length } - 1), res)
+
+  io.println(fixed |> int.to_string)
+}
+
+pub fn fix_order(
+  row: List(Int),
+  rules: dict.Dict(String, List(List(String))),
+) -> List(Int) {
+  row
+  |> list.sort(fn(a, b) {
+    let lt =
+      a
+      |> get_lts_from_rules_for_num(rules)
+      |> list.any(fn(n) { n == b })
+
+    case lt {
+      True -> order.Lt
+      False -> order.Gt
+    }
+  })
 }
 
 pub fn get_middles_sum(only: List(Int), pages: List(List(Int))) -> Int {
