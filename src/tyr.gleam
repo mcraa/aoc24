@@ -1,10 +1,9 @@
 import gleam/bool
-import gleam/dict
 import gleam/int
 import gleam/io
 import gleam/list
-import gleam/order
 import gleam/result
+import gleam/set
 import gleam/string
 import simplifile
 
@@ -12,118 +11,218 @@ pub fn main() {
   let content =
     simplifile.read(from: "input")
     |> result.unwrap("")
-    |> string.split("\n\n")
+    |> string.split("\n")
+    |> list.map(fn(n) { n |> string.split("") })
 
-  let rules =
-    content
+  let height = content |> list.length
+  let width = content |> list.at(0) |> result.unwrap([]) |> list.length
+
+  let iterx = list.range(0, width - 1)
+  let itery = list.range(0, height - 1)
+
+  let #(startx, starty) =
+    itery
+    |> list.map(fn(y) {
+      iterx
+      |> list.map(fn(x) {
+        let item =
+          content
+          |> list.at(y)
+          |> result.unwrap([])
+          |> list.at(x)
+          |> result.unwrap("")
+
+        case item {
+          "^" -> #(x, y)
+          "v" -> #(x, y)
+          ">" -> #(x, y)
+          "<" -> #(x, y)
+          _ -> #(-1, -1)
+        }
+      })
+    })
+    |> list.flatten
+    |> list.filter(fn(f) { { f.0 == -1 } |> bool.negate })
     |> list.at(0)
-    |> result.unwrap("")
-    |> string.split("\n")
-    |> list.map(fn(i) { i |> string.split("|") })
-    |> list.group(fn(a) { a |> list.at(0) |> result.unwrap("") })
+    |> result.unwrap(#(-1, -1))
 
-  let pages =
+  let start_guard =
     content
-    |> list.at(1)
+    |> list.at(starty)
+    |> result.unwrap([])
+    |> list.at(startx)
     |> result.unwrap("")
-    |> string.split("\n")
-    |> list.map(fn(n) {
-      n
-      |> string.split(",")
-      |> list.map(fn(i) { int.parse(i) |> result.unwrap(0) })
-    })
 
-  let iterate = list.range(0, { { pages |> list.length } - 1 })
-  let badrows =
-    iterate
-    |> list.filter(fn(i) {
-      let row =
-        pages
-        |> list.at(i)
-        |> result.unwrap([])
+  io.println(start_guard)
+  io.print(startx |> int.to_string)
+  io.print(", ")
+  io.println(starty |> int.to_string)
 
-      let loop = list.range(0, { row |> list.length } - 1)
+  let #(dirx, diry) = case start_guard {
+    "^" -> #(0, -1)
+    "v" -> #(0, 1)
+    ">" -> #(1, 0)
+    "<" -> #(-1, 0)
+    _ -> #(0, 0)
+  }
 
-      let goodpages =
-        loop
-        |> list.filter(fn(l) {
-          let rest =
-            row
-            |> list.take(l)
-
-          let lts =
-            row
-            |> list.at(l)
-            |> result.unwrap(0)
-            |> get_lts_from_rules_for_num(rules)
-
-          rest
-          |> list.all(fn(i) { lts |> list.contains(i) |> bool.negate })
-        })
-        |> list.length
-
-      goodpages < { loop |> list.length }
-    })
+  let visited = set.new()
 
   let res =
-    badrows
-    |> list.map(fn(n) {
-      let row =
-        pages
-        |> list.at(n)
-        |> result.unwrap([])
+    get_out_in_steps(
+      content,
+      startx,
+      starty,
+      height,
+      width,
+      visited,
+      dirx,
+      diry,
+    )
 
-      row |> fix_order(rules)
-    })
-
-  let fixed = get_middles_sum(list.range(0, { res |> list.length } - 1), res)
-
-  io.println(fixed |> int.to_string)
+  io.print(res |> int.to_string)
 }
 
-pub fn fix_order(
-  row: List(Int),
-  rules: dict.Dict(String, List(List(String))),
-) -> List(Int) {
-  row
-  |> list.sort(fn(a, b) {
-    let lt =
-      a
-      |> get_lts_from_rules_for_num(rules)
-      |> list.any(fn(n) { n == b })
-
-    case lt {
-      True -> order.Lt
-      False -> order.Gt
-    }
-  })
-}
-
-pub fn get_middles_sum(only: List(Int), pages: List(List(Int))) -> Int {
-  only
-  |> list.map(fn(n) {
-    let row =
-      pages
-      |> list.at(n)
+pub fn get_out_in_steps(
+  map: List(List(String)),
+  startx: Int,
+  starty: Int,
+  height: Int,
+  width: Int,
+  visited: set.Set(String),
+  directionx: Int,
+  directiony: Int,
+) -> Int {
+  let need_to_turn =
+    {
+      map
+      |> list.at(starty + directiony)
       |> result.unwrap([])
-
-    let mid = {
-      { row |> list.length } / 2
+      |> list.at(startx + directionx)
+      |> result.unwrap("")
     }
+    == "#"
 
-    row |> list.at(mid) |> result.unwrap(0)
-  })
-  |> list.fold(0, fn(a, b) { a + b })
-}
+  case need_to_turn {
+    True -> {
+      // io.print(need_to_turn |> bool.to_string)
+      io.print(" ")
+      io.print(starty |> int.to_string)
+      io.print(", ")
+      io.println(startx |> int.to_string)
+    }
+    False -> {
+      io.print("")
+    }
+  }
 
-pub fn get_lts_from_rules_for_num(
-  num: Int,
-  rules: dict.Dict(String, List(List(String))),
-) -> List(Int) {
-  rules
-  |> dict.get(num |> int.to_string)
-  |> result.unwrap([])
-  |> list.map(fn(n) {
-    n |> list.at(1) |> result.unwrap("") |> int.parse |> result.unwrap(0)
-  })
+  let last_step = #(
+    { startx >= width },
+    { starty >= height },
+    { startx <= 0 },
+    { starty <= 0 },
+    directionx,
+    directiony,
+    need_to_turn,
+  )
+
+  case last_step {
+    #(True, _, _, _, _, _, _) -> visited |> set.size
+    #(_, True, _, _, _, _, _) -> visited |> set.size
+    #(_, _, True, _, _, _, _) -> visited |> set.size
+    #(_, _, _, True, _, _, _) -> visited |> set.size
+
+    #(_, _, _, _, _, _, False) ->
+      get_out_in_steps(
+        map,
+        startx + directionx,
+        starty + directiony,
+        height,
+        width,
+        visited
+          |> set.insert(
+            string.concat([
+              startx |> int.to_string,
+              "-",
+              starty |> int.to_string,
+            ]),
+          ),
+        directionx,
+        directiony,
+      )
+    #(_, _, _, _, -1, _, True) ->
+      get_out_in_steps(
+        map,
+        startx,
+        starty - 1,
+        height,
+        width,
+        visited
+          |> set.insert(
+            string.concat([
+              startx |> int.to_string,
+              "-",
+              starty |> int.to_string,
+            ]),
+          ),
+        0,
+        -1,
+      )
+    #(_, _, _, _, 1, _, True) ->
+      get_out_in_steps(
+        map,
+        startx,
+        starty + 1,
+        height,
+        width,
+        visited
+          |> set.insert(
+            string.concat([
+              startx |> int.to_string,
+              "-",
+              starty |> int.to_string,
+            ]),
+          ),
+        0,
+        1,
+      )
+    #(_, _, _, _, _, -1, True) ->
+      get_out_in_steps(
+        map,
+        startx + 1,
+        starty,
+        height,
+        width,
+        visited
+          |> set.insert(
+            string.concat([
+              startx |> int.to_string,
+              "-",
+              starty |> int.to_string,
+            ]),
+          ),
+        1,
+        0,
+      )
+    #(_, _, _, _, _, 1, True) ->
+      get_out_in_steps(
+        map,
+        startx - 1,
+        starty,
+        height,
+        width,
+        visited
+          |> set.insert(
+            string.concat([
+              startx |> int.to_string,
+              "-",
+              starty |> int.to_string,
+            ]),
+          ),
+        -1,
+        0,
+      )
+    // should not happen
+    _ -> 0
+  }
 }
