@@ -1,3 +1,5 @@
+import gleam/bool
+import gleam/dict
 import gleam/int
 import gleam/io
 import gleam/list
@@ -9,63 +11,89 @@ pub fn main() {
   let content =
     simplifile.read(from: "input")
     |> result.unwrap("")
+    |> string.split("\n\n")
+
+  let rules =
+    content
+    |> list.at(0)
+    |> result.unwrap("")
     |> string.split("\n")
-    |> list.map(fn(n) { string.split(n, "") })
+    |> list.map(fn(i) { i |> string.split("|") })
+    |> list.group(fn(a) { a |> list.at(0) |> result.unwrap("") })
 
-  let height = {
-    content |> list.length
-  }
-  let width = {
-    content |> list.at(0) |> result.unwrap([]) |> list.length
-  }
-
-  let masks: List(List(#(Int, Int))) = [
-    [#(-1, -1), #(0, 0), #(1, 1), #(-1, 1), #(0, 0), #(1, -1)],
-  ]
-
-  let iterx = list.range(0, width - 1)
-  let itery = list.range(0, height - 1)
-
-  let res =
-    itery
-    |> list.map(fn(y) {
-      iterx
-      |> list.map(fn(x) {
-        check_masks_from_xy(
-          ["MASMAS", "SAMSAM", "MASSAM", "SAMMAS"],
-          content,
-          masks,
-          x,
-          y,
-        )
-      })
+  let pages =
+    content
+    |> list.at(1)
+    |> result.unwrap("")
+    |> string.split("\n")
+    |> list.map(fn(n) {
+      n
+      |> string.split(",")
+      |> list.map(fn(i) { int.parse(i) |> result.unwrap(0) })
     })
-    |> list.flatten
-    |> list.fold(0, fn(a, b) { a + b })
+
+  let iterate = list.range(0, { { pages |> list.length } - 1 })
+  let goodrows =
+    iterate
+    |> list.filter(fn(i) {
+      let row =
+        pages
+        |> list.at(i)
+        |> result.unwrap([])
+
+      let loop = list.range(0, { row |> list.length } - 1)
+
+      let goodpages =
+        loop
+        |> list.filter(fn(l) {
+          let rest =
+            row
+            |> list.take(l)
+
+          let lts =
+            row
+            |> list.at(l)
+            |> result.unwrap(0)
+            |> get_lts_from_rules_for_num(rules)
+
+          rest
+          |> list.all(fn(i) { lts |> list.contains(i) |> bool.negate })
+        })
+        |> list.length
+
+      goodpages == { loop |> list.length }
+    })
+
+  let res = goodrows |> get_middles_sum(pages)
 
   io.println(res |> int.to_string)
 }
 
-pub fn check_masks_from_xy(
-  search: List(String),
-  content: List(List(String)),
-  masks: List(List(#(Int, Int))),
-  x: Int,
-  y: Int,
-) -> Int {
-  masks
-  |> list.map(fn(o) {
-    o
-    |> list.map(fn(c) {
-      let #(dx, dy) = c
-      content
-      |> list.at(y + dy)
+pub fn get_middles_sum(only: List(Int), pages: List(List(Int))) -> Int {
+  only
+  |> list.map(fn(n) {
+    let row =
+      pages
+      |> list.at(n)
       |> result.unwrap([])
-      |> list.at(x + dx)
-      |> result.unwrap("")
-    })
-    |> string.concat
+
+    let mid = {
+      { row |> list.length } / 2
+    }
+
+    row |> list.at(mid) |> result.unwrap(0)
   })
-  |> list.filter(fn(n) { search |> list.contains(n) })
-  |> list.length
+  |> list.fold(0, fn(a, b) { a + b })
+}
+
+pub fn get_lts_from_rules_for_num(
+  num: Int,
+  rules: dict.Dict(String, List(List(String))),
+) -> List(Int) {
+  rules
+  |> dict.get(num |> int.to_string)
+  |> result.unwrap([])
+  |> list.map(fn(n) {
+    n |> list.at(1) |> result.unwrap("") |> int.parse |> result.unwrap(0)
+  })
 }
